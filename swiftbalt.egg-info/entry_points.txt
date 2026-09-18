@@ -1,0 +1,3 @@
+[console_scripts]
+mediahub = cli:cli
+swiftbalt = cli:cli

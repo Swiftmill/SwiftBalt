@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: swiftbalt
+Version: 1.0.0
+Summary: SwiftBalt Universal Media Downloader & Platform Utility
+Requires-Dist: click
+Requires-Dist: requests
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: yt-dlp
+Dynamic: requires-dist
+Dynamic: summary

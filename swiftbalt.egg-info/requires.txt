@@ -1,0 +1,5 @@
+click
+requests
+fastapi
+uvicorn
+yt-dlp

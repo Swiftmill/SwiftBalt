@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+*.db
+*.sqlite
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# SwiftBalt Data
+data/
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
