@@ -1,0 +1,14 @@
+services:
+  swiftbalt:
+    build: .
+    container_name: swiftbalt
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "5173:5173"
+    environment:
+      - APP_NAME=SwiftBalt
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./data:/app/data
