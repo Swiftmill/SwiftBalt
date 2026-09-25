@@ -35,6 +35,13 @@ fn open_folder(path: String) -> Result<(), String> {
             .spawn()
             .map_err(|e| e.to_string())?;
     }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -65,12 +72,13 @@ fn window_start_dragging(window: tauri::Window) {
 }
 
 fn log_launcher(msg: &str) {
-    if let Ok(temp) = std::env::var("TEMP") {
-        let log_file = PathBuf::from(temp).join("swiftbalt_launcher.log");
-        use std::io::Write;
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
-            let _ = writeln!(file, "[{}] {}", chrono_lite_timestamp(), msg);
-        }
+    let temp_dir = std::env::var("TEMP")
+        .or_else(|_| std::env::var("TMPDIR"))
+        .unwrap_or_else(|_| "/tmp".to_string());
+    let log_file = PathBuf::from(temp_dir).join("swiftbalt_launcher.log");
+    use std::io::Write;
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_file) {
+        let _ = writeln!(file, "[{}] {}", chrono_lite_timestamp(), msg);
     }
 }
 
@@ -146,6 +154,25 @@ fn find_backend_executable() -> Option<(PathBuf, Vec<String>, Option<PathBuf>)> 
                 if l.exists() {
                     log_launcher(&format!("Found backend in linux lib: {:?}", l));
                     return Some((l.clone(), vec![], l.parent().map(|p| p.to_path_buf())));
+                }
+            }
+
+            // macOS .app bundle paths (Contents/MacOS/SwiftBalt -> Contents/Resources/...)
+            #[cfg(target_os = "macos")]
+            if let Some(contents_dir) = exe_dir.parent() {
+                let resources_dir = contents_dir.join("Resources");
+                let macos_candidates = [
+                    resources_dir.join("resources").join("swiftbalt-backend").join(bin_name),
+                    resources_dir.join("swiftbalt-backend").join(bin_name),
+                    resources_dir.join(bin_name),
+                    exe_dir.join(bin_name),
+                    exe_dir.join("resources").join("swiftbalt-backend").join(bin_name),
+                ];
+                for m in &macos_candidates {
+                    if m.exists() {
+                        log_launcher(&format!("Found backend in macOS bundle: {:?}", m));
+                        return Some((m.clone(), vec![], m.parent().map(|p| p.to_path_buf())));
+                    }
                 }
             }
         }
@@ -241,7 +268,7 @@ fn start_backend_if_needed() {
             }
         }
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
             let child = Command::new("python3")
                 .args(&["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--port", "8000", "--host", "127.0.0.1"])

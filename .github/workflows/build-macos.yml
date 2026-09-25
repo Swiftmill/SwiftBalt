@@ -1,0 +1,152 @@
+name: Build & Test macOS (.DMG)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    strategy:
+      matrix:
+        include:
+          - runner: macos-14
+            arch: aarch64-apple-darwin
+            slug: arm64
+            label: Apple-Silicon
+          - runner: macos-13
+            arch: x86_64-apple-darwin
+            slug: x64
+            label: Intel
+    runs-on: ${{ matrix.runner }}
+    name: Build macOS ${{ matrix.label }} (${{ matrix.slug }})
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.arch }}
+
+      - name: Build Python Backend with PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install "greenlet>=3.1.0" "sqlalchemy[asyncio]>=2.0.35"
+          pip install -r backend/requirements.txt
+          pip install pyinstaller
+          pyinstaller --clean --noconfirm swiftbalt-backend.spec
+          chmod +x dist/swiftbalt-backend/swiftbalt-backend
+          mkdir -p frontend/src-tauri/resources/swiftbalt-backend
+          cp -r dist/swiftbalt-backend/* frontend/src-tauri/resources/swiftbalt-backend/
+
+      - name: Build React Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Tauri DMG & APP Bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./frontend
+          args: --bundles dmg,app
+
+      - name: Emulate & Validate macOS Bundle
+        run: |
+          echo "=== 1. Searching for built DMG ==="
+          DMG_FILE=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "Error: No DMG file found!"
+            exit 1
+          fi
+          echo "Found DMG: $DMG_FILE ($(ls -lh "$DMG_FILE" | awk '{print $5}'))"
+
+          echo "=== 2. Mounting DMG into virtual volume ==="
+          MOUNT_INFO=$(hdiutil attach "$DMG_FILE" -nobrowse -readonly)
+          MOUNT_POINT=$(echo "$MOUNT_INFO" | grep -o '/Volumes/.*' | head -n 1)
+          echo "Mounted successfully at: $MOUNT_POINT"
+          ls -la "$MOUNT_POINT"
+
+          APP_BUNDLE="$MOUNT_POINT/SwiftBalt.app"
+          if [ ! -d "$APP_BUNDLE" ]; then
+            echo "Error: SwiftBalt.app not found in mounted DMG volume!"
+            hdiutil detach "$MOUNT_POINT"
+            exit 1
+          fi
+
+          echo "=== 3. Inspecting .app structure & permissions ==="
+          ls -la "$APP_BUNDLE/Contents"
+          ls -la "$APP_BUNDLE/Contents/MacOS"
+
+          echo "=== 4. Testing embedded standalone backend execution ==="
+          BACKEND_BIN=$(find "$APP_BUNDLE/Contents/Resources" -name "swiftbalt-backend" -type f | head -n 1)
+          if [ -z "$BACKEND_BIN" ]; then
+            BACKEND_BIN=$(find "$APP_BUNDLE/Contents" -name "swiftbalt-backend" -type f | head -n 1)
+          fi
+          echo "Backend binary path: $BACKEND_BIN"
+          chmod +x "$BACKEND_BIN"
+
+          # Start backend in background to test startup
+          "$BACKEND_BIN" > /tmp/macos_backend.log 2>&1 &
+          B_PID=$!
+          echo "Backend started with PID: $B_PID"
+
+          SERVER_OK=false
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8000/api/health | grep -q "status"; then
+              echo "SUCCESS! Backend responded to health check on macOS!"
+              curl -s http://127.0.0.1:8000/api/health
+              SERVER_OK=true
+              break
+            fi
+            sleep 0.5
+          done
+
+          if [ "$SERVER_OK" = false ]; then
+            echo "Error: Backend failed to respond within 15s"
+            cat /tmp/macos_backend.log
+            kill -9 $B_PID 2>/dev/null || true
+            hdiutil detach "$MOUNT_POINT"
+            exit 1
+          fi
+
+          kill -9 $B_PID 2>/dev/null || true
+          hdiutil detach "$MOUNT_POINT"
+          echo "=== 5. Emulation & automated tests passed with flying colors! ==="
+
+      - name: Rename DMG with Architecture
+        run: |
+          mkdir -p release_dmg
+          SRC_DMG=$(find frontend/src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          cp "$SRC_DMG" "release_dmg/SwiftBalt-macOS-${{ matrix.slug }}.dmg"
+          echo "Prepared: release_dmg/SwiftBalt-macOS-${{ matrix.slug }}.dmg"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwiftBalt-macOS-${{ matrix.label }}
+          path: release_dmg/*.dmg
+
+      - name: Upload to GitHub Release v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v1.0.0 "release_dmg/SwiftBalt-macOS-${{ matrix.slug }}.dmg" --clobber || true
