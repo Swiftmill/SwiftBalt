@@ -94,8 +94,11 @@ fn find_backend_executable() -> Option<(PathBuf, Vec<String>, Option<PathBuf>)> 
         let appdir_path = PathBuf::from(appdir);
         let appimage_candidates = [
             appdir_path.join("resources").join("swiftbalt-backend").join(bin_name),
-            appdir_path.join("usr").join("bin").join("resources").join("swiftbalt-backend").join(bin_name),
+            appdir_path.join("usr").join("lib").join("SwiftBalt").join("resources").join("swiftbalt-backend").join(bin_name),
+            appdir_path.join("usr").join("lib").join("swiftbalt").join("resources").join("swiftbalt-backend").join(bin_name),
+            appdir_path.join("usr").join("lib").join("SwiftBalt").join("swiftbalt-backend").join(bin_name),
             appdir_path.join("usr").join("lib").join("swiftbalt").join("swiftbalt-backend").join(bin_name),
+            appdir_path.join("usr").join("bin").join("resources").join("swiftbalt-backend").join(bin_name),
             appdir_path.join("usr").join("bin").join(bin_name),
             appdir_path.join(bin_name),
         ];
@@ -133,10 +136,17 @@ fn find_backend_executable() -> Option<(PathBuf, Vec<String>, Option<PathBuf>)> 
             }
 
             // Linux standard share/lib paths
-            let linux_lib = exe_dir.parent().unwrap_or(exe_dir).join("lib").join("swiftbalt").join("resources").join("swiftbalt-backend").join(bin_name);
-            if linux_lib.exists() {
-                log_launcher(&format!("Found backend in linux lib: {:?}", linux_lib));
-                return Some((linux_lib.clone(), vec![], linux_lib.parent().map(|p| p.to_path_buf())));
+            let linux_libs = [
+                exe_dir.parent().unwrap_or(exe_dir).join("lib").join("SwiftBalt").join("resources").join("swiftbalt-backend").join(bin_name),
+                exe_dir.parent().unwrap_or(exe_dir).join("lib").join("swiftbalt").join("resources").join("swiftbalt-backend").join(bin_name),
+                exe_dir.parent().unwrap_or(exe_dir).join("lib").join("SwiftBalt").join("swiftbalt-backend").join(bin_name),
+                exe_dir.parent().unwrap_or(exe_dir).join("lib").join("swiftbalt").join("swiftbalt-backend").join(bin_name),
+            ];
+            for l in &linux_libs {
+                if l.exists() {
+                    log_launcher(&format!("Found backend in linux lib: {:?}", l));
+                    return Some((l.clone(), vec![], l.parent().map(|p| p.to_path_buf())));
+                }
             }
         }
     }
