@@ -1,0 +1,22 @@
+{
+  "name": "SwiftBalt",
+  "short_name": "SwiftBalt",
+  "description": "Téléchargeur universel de médias rapide, propre et sans publicité.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d0f17",
+  "theme_color": "#0d0f17",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

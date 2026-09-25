@@ -104,9 +104,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLog
 
       {/* Right: Status badge + Custom Window Controls */}
       <div className="topbar-right">
-        <div className="topbar-status">
-          <span className={`status-dot ${isWsConnected ? 'online' : 'offline'}`} />
-          <span>{isWsConnected ? 'online' : 'connecting'}</span>
+        <div className="topbar-status" title={!isDesktop ? "SwiftBalt Web Cloud (iOS & Navigateur)" : (isWsConnected ? "Connecté au backend local" : "Connexion au backend...")}>
+          <span className={`status-dot ${isWsConnected || !isDesktop ? 'online' : 'offline'}`} />
+          <span>{isDesktop ? (isWsConnected ? 'online' : 'connecting') : 'web cloud'}</span>
         </div>
 
         {isDesktop && (

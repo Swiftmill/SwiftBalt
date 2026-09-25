@@ -43,8 +43,13 @@ class WebSocketService {
 
       this.ws.onclose = () => {
         this.isConnecting = false;
-        this.emit('connection_status', { connected: false });
-        setTimeout(() => this.connect(), this.reconnectInterval);
+        if (isDesktop) {
+          this.emit('connection_status', { connected: false });
+          setTimeout(() => this.connect(), this.reconnectInterval);
+        } else {
+          // In web mode, we stay in web cloud mode
+          this.emit('connection_status', { connected: true });
+        }
       };
 
       this.ws.onerror = () => {
@@ -54,7 +59,11 @@ class WebSocketService {
       };
     } catch {
       this.isConnecting = false;
-      setTimeout(() => this.connect(), this.reconnectInterval);
+      if (!isDesktop) {
+        this.emit('connection_status', { connected: true });
+      } else {
+        setTimeout(() => this.connect(), this.reconnectInterval);
+      }
     }
   }
 
@@ -73,7 +82,7 @@ class WebSocketService {
     }
   }
 
-  private emit(eventType: string, data: any) {
+  public emit(eventType: string, data: any) {
     const set = this.listeners.get(eventType);
     if (set) {
       set.forEach((handler) => {

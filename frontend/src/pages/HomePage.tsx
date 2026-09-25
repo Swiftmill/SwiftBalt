@@ -20,6 +20,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onDownloadStarted }) => {
   const [quickMode, setQuickMode] = useState<'video' | 'audio'>('video');
   const [quickFormat, setQuickFormat] = useState<string>('mp4');
   const [quickQuality, setQuickQuality] = useState<string>('1080p');
+  const [showIosTip, setShowIosTip] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isStandalone = ('standalone' in window.navigator) && (window.navigator as any).standalone;
+    return isIos && !isStandalone && !localStorage.getItem('swiftbalt_hide_ios_tip');
+  });
 
   useEffect(() => {
     const handleUpdate = (updated: DownloadItem) => {
@@ -135,6 +141,48 @@ export const HomePage: React.FC<HomePageProps> = ({ onDownloadStarted }) => {
 
   return (
     <div className="home-wrapper">
+      {showIosTip && (
+        <div style={{
+          background: 'rgba(99, 102, 241, 0.12)',
+          border: '1px solid rgba(99, 102, 241, 0.3)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.85rem',
+          color: '#e2e8f0',
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.2rem' }}>📱</span>
+            <span>
+              <strong>Astuce iOS :</strong> Appuie sur <strong>Partager</strong> puis <strong>« Sur l'écran d'accueil »</strong> pour installer SwiftBalt sans sideload !
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setShowIosTip(false);
+              localStorage.setItem('swiftbalt_hide_ios_tip', '1');
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: '1.2rem',
+              lineHeight: 1,
+              padding: '2px 6px',
+            }}
+            aria-label="Fermer"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Hero */}
       <div className="home-hero">
         <h1>télécharge ce que tu veux</h1>
