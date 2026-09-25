@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  swiftbalt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: swiftbalt_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SWIFTBALT_APP_NAME=SwiftBalt
+      - SWIFTBALT_HOST=0.0.0.0
+      - SWIFTBALT_PORT=8000
+      - SWIFTBALT_ENVIRONMENT=production
+      - SWIFTBALT_DEBUG=false
+      - SWIFTBALT_MAX_CONCURRENT_DOWNLOADS=3
+      - SWIFTBALT_DEFAULT_QUALITY=1080p
+      - SWIFTBALT_DEFAULT_FORMAT=mp4
+    volumes:
+      - swiftbalt_data:/app/data
+
+volumes:
+  swiftbalt_data:
+    driver: local

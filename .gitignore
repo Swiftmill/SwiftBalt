@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Data and SQLite
+data/
+stdout.txt
+stderr.txt
+test_bytecode_run/
+data/torrents/*
+!data/torrents/.gitkeep
+data/thumbnails/*
+!data/thumbnails/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Binaries and builds
+*.exe
+*.zip
+*.tar.gz
+build/
+swiftbalt-backend/
+frontend/src-tauri/target/
+frontend/src-tauri/resources/swiftbalt-backend/
+frontend/ios/App/Pods/
+frontend/ios/App/DerivedData/
+website/
+SwiftBalt-Linux-Portable/
+*.log
