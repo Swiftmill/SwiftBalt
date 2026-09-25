@@ -42,6 +42,11 @@ Thumbs.db
 *.exe
 *.zip
 *.tar.gz
+*.AppImage
+*.deb
+*.ipa
+extracted_linux/
+upload_assets.py
 build/
 swiftbalt-backend/
 frontend/src-tauri/target/
@@ -51,3 +56,4 @@ frontend/ios/App/DerivedData/
 website/
 SwiftBalt-Linux-Portable/
 *.log
+

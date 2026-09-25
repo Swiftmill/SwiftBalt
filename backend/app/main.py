@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from app.core.config import settings
 from app.database.session import init_db
 from app.downloads.manager import download_manager
@@ -100,8 +100,26 @@ candidate_dists = [
     Path(__file__).resolve().parent.parent.parent / "frontend" / "dist",
     Path(__file__).resolve().parent.parent.parent / "dist",
 ]
+found_dist = None
 for dist_dir in candidate_dists:
     if dist_dir.exists() and (dist_dir / "index.html").exists():
-        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
+        found_dist = dist_dir
         break
+
+if found_dist:
+    assets_dir = found_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.exception_handler(404)
+    async def spa_fallback_404(request: Request, exc):
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        index_file = found_dist / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+    app.mount("/", StaticFiles(directory=str(found_dist), html=True), name="frontend")
+
 
