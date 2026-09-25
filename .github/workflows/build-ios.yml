@@ -60,7 +60,9 @@ jobs:
         working-directory: ./frontend/ios/App/build
         run: |
           mkdir -p Payload
-          cp -R App.xcarchive/Products/Applications/App.app Payload/SwiftBalt.app
+          APP_PATH=$(find App.xcarchive/Products/Applications -name "*.app" -maxdepth 1 | head -n 1)
+          echo "Found app at: $APP_PATH"
+          cp -R "$APP_PATH" Payload/SwiftBalt.app
           zip -qr SwiftBalt.ipa Payload
           ls -lh SwiftBalt.ipa
 
