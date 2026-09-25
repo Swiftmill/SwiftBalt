@@ -16,6 +16,7 @@ import { api } from './services/api';
 import { wsService } from './services/websocket';
 import { ArrowDownToLine, Home, Download, Tv, Settings as SettingsIcon } from 'lucide-react';
 import { ToastContainer, ToastMessage } from './components/Toast';
+import { DynamicIsland } from './components/DynamicIsland';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('home');
@@ -133,6 +134,12 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
+      {/* Dynamic Island for iOS & Mobile */}
+      <DynamicIsland
+        downloads={downloads}
+        onOpenDownloads={() => navigate('downloads')}
+      />
+
       {/* Top bar */}
       <TopBar
         onMenuOpen={() => setSidebarOpen(true)}

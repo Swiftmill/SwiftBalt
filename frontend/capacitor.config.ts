@@ -4,9 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.swiftmill.swiftbalt',
   appName: 'SwiftBalt',
   webDir: 'dist',
-  backgroundColor: '#0a0a0c',
+  backgroundColor: '#0d0d0f',
   ios: {
-    contentInset: 'always',
+    contentInset: 'never',
+    allowsLinkPreview: false,
   },
   server: {
     androidScheme: 'https',

@@ -90,7 +90,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLog
 
         <div className="topbar-brand" onClick={onLogoClick} title="Retour à l'accueil">
           <div className="topbar-logo">
-            <img src="/logo.png" alt="SwiftBalt" />
+            <img src="logo.png" alt="SwiftBalt" />
           </div>
           <span className="topbar-name">swiftbalt</span>
           <span className="topbar-badge">v1</span>
