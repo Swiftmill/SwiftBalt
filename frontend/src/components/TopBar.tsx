@@ -12,7 +12,11 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLog
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    const desktop = typeof window !== 'undefined' &&
+    const isMobile = typeof navigator !== 'undefined' && (
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      (typeof window !== 'undefined' && 'ontouchstart' in window && !/Windows NT|Macintosh|Linux x86_64/i.test(navigator.userAgent))
+    );
+    const desktop = typeof window !== 'undefined' && !isMobile &&
       ('__TAURI_INTERNALS__' in window || window.location.hostname === 'tauri.localhost');
     setIsDesktop(desktop);
   }, []);
@@ -104,9 +108,9 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLog
 
       {/* Right: Status badge + Custom Window Controls */}
       <div className="topbar-right">
-        <div className="topbar-status" title={!isDesktop ? "SwiftBalt Web Cloud (iOS & Navigateur)" : (isWsConnected ? "Connecté au backend local" : "Connexion au backend...")}>
+        <div className="topbar-status" title={!isDesktop ? "SwiftBalt Cloud (iOS & Navigateur)" : (isWsConnected ? "Connecté au backend local" : "Connexion au backend...")}>
           <span className={`status-dot ${isWsConnected || !isDesktop ? 'online' : 'offline'}`} />
-          <span>{isDesktop ? (isWsConnected ? 'online' : 'connecting') : 'web cloud'}</span>
+          <span>{isDesktop ? (isWsConnected ? 'online' : 'connecting') : 'online'}</span>
         </div>
 
         {isDesktop && (

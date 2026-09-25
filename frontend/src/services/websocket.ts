@@ -11,14 +11,27 @@ class WebSocketService {
       return;
     }
     this.isConnecting = true;
-    const isDesktop = typeof window !== 'undefined' && (
+    const isMobile = typeof navigator !== 'undefined' && (
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      (typeof window !== 'undefined' && 'ontouchstart' in window && !/Windows NT|Macintosh|Linux x86_64/i.test(navigator.userAgent))
+    );
+    const isDesktop = typeof window !== 'undefined' && !isMobile && (
       '__TAURI_INTERNALS__' in window ||
       '__TAURI__' in window ||
       window.location.hostname === 'tauri.localhost' ||
       window.location.protocol === 'tauri:'
     );
-    const protocol = (window.location.protocol === 'https:' && !isDesktop) ? 'wss:' : 'ws:';
-    const host = isDesktop ? '127.0.0.1:8000' : window.location.host;
+
+    // On mobile devices (iOS / Android) or in web mode without custom backend,
+    // there is no local 127.0.0.1:8000 Python server: operate in Web Cloud mode immediately!
+    if (!isDesktop) {
+      this.isConnecting = false;
+      this.emit('connection_status', { connected: true });
+      return;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = '127.0.0.1:8000';
     const url = `${protocol}//${host}/ws`;
 
     try {

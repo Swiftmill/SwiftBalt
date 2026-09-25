@@ -35,7 +35,11 @@ export const SettingsPage: React.FC = () => {
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    setIsDesktop(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+    const isMobile = typeof navigator !== 'undefined' && (
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      (typeof window !== 'undefined' && 'ontouchstart' in window && !/Windows NT|Macintosh|Linux x86_64/i.test(navigator.userAgent))
+    );
+    setIsDesktop(typeof window !== 'undefined' && !isMobile && '__TAURI_INTERNALS__' in window);
   }, []);
 
   const handlePickFolder = async () => {

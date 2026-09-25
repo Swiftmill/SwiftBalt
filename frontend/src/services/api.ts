@@ -13,12 +13,20 @@ import {
 } from '../types';
 import { wsService } from './websocket';
 
-export const isDesktop = typeof window !== 'undefined' && (
+export const isMobile = typeof navigator !== 'undefined' && (
+  /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+  (typeof window !== 'undefined' && 'ontouchstart' in window && !/Windows NT|Macintosh|Linux x86_64/i.test(navigator.userAgent))
+);
+
+export const isTauri = typeof window !== 'undefined' && (
   '__TAURI_INTERNALS__' in window ||
   '__TAURI__' in window ||
   window.location.hostname === 'tauri.localhost' ||
   window.location.protocol === 'tauri:'
 );
+
+// ONLY desktop PCs (Windows, macOS, Linux) have a local Python 127.0.0.1:8000 backend bundled!
+export const isDesktop = isTauri && !isMobile;
 
 export const getBackendUrl = (): string => {
   if (typeof window !== 'undefined') {
@@ -376,7 +384,7 @@ export const api = {
         });
         return await handleResponse<AnalyzeResult>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
         // Fallback to web engine if custom backend fails
       }
     }
@@ -402,7 +410,7 @@ export const api = {
         });
         return await handleResponse<DownloadItem>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
 
@@ -494,7 +502,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/downloads`);
         return await handleResponse<DownloadItem[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -507,7 +515,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/downloads/${id}/pause`, { method: 'POST' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const list = getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -522,7 +530,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/downloads/${id}/resume`, { method: 'POST' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const list = getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -537,7 +545,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/downloads/${id}/cancel`, { method: 'POST' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const list = getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -553,7 +561,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/downloads/${id}/retry`, { method: 'POST' });
         return await handleResponse<DownloadItem>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const list = getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -580,7 +588,7 @@ export const api = {
         });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const list = getLocal<DownloadItem[]>(STORAGE_DOWNLOADS, []);
@@ -607,7 +615,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/twitch/analyze?url=${encodeURIComponent(url)}`);
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return {
@@ -626,7 +634,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/twitch/featured`);
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return [
@@ -645,7 +653,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/torrents`);
         return await handleResponse<TorrentItem[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return [];
@@ -705,7 +713,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/history`);
         return await handleResponse<HistoryItem[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return getLocal<HistoryItem[]>(STORAGE_HISTORY, []);
@@ -718,7 +726,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/history`, { method: 'DELETE' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     setLocal(STORAGE_HISTORY, []);
@@ -732,7 +740,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/history/${id}`, { method: 'DELETE' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const history = getLocal<HistoryItem[]>(STORAGE_HISTORY, []);
@@ -748,7 +756,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/favorites`);
         return await handleResponse<FavoriteItem[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return getLocal<FavoriteItem[]>(STORAGE_FAVORITES, []);
@@ -772,7 +780,7 @@ export const api = {
         });
         return await handleResponse<FavoriteItem>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const favorites = getLocal<FavoriteItem[]>(STORAGE_FAVORITES, []);
@@ -797,7 +805,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/favorites/${id}`, { method: 'DELETE' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const favorites = getLocal<FavoriteItem[]>(STORAGE_FAVORITES, []);
@@ -813,7 +821,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/providers`);
         return await handleResponse<ProviderInfo[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return [
@@ -836,7 +844,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/dashboard/stats`);
         return await handleResponse<DashboardStats>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const history = getLocal<HistoryItem[]>(STORAGE_HISTORY, []);
@@ -875,7 +883,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/settings`);
         return await handleResponse<SettingsData>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return getLocal<SettingsData>(STORAGE_SETTINGS, {
@@ -909,7 +917,7 @@ export const api = {
         });
         return await handleResponse<SettingsData>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const current = await api.getSettings();
@@ -925,7 +933,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/settings/open-folder`, { method: 'POST' });
         return await handleResponse(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return { status: 'web_mode', opened: 'Les fichiers sont enregistrés dans le gestionnaire de téléchargements de votre navigateur (Safari / Fichiers sur iOS).' };
@@ -939,7 +947,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/anime/trending`);
         return await handleResponse<AnimeCard[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     return WEB_ANIME_CATALOG.map(a => ({
@@ -958,7 +966,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/anime/search?q=${encodeURIComponent(q)}`);
         return await handleResponse<AnimeCard[]>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const query = q.toLowerCase().trim();
@@ -983,7 +991,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/anime/${encodeURIComponent(slug)}`);
         return await handleResponse<AnimeDetails>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
     const found = WEB_ANIME_CATALOG.find(a => a.slug === slug);
@@ -998,7 +1006,7 @@ export const api = {
         const res = await fetch(`${API_BASE}/anime/${encodeURIComponent(slug)}/episodes?subpath=${encodeURIComponent(subpath)}`);
         return await handleResponse<AnimeEpisodesResponse>(res);
       } catch (err) {
-        if (isDesktop) throw err;
+        console.warn('Backend call failed, using web engine fallback', err);
       }
     }
 
