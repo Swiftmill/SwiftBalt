@@ -301,4 +301,64 @@ export const updaterService = {
     a.click();
     document.body.removeChild(a);
   },
+
+  async installAndRestartUpdate(
+    updateInfo: UpdateInfo,
+    onProgress?: (data: { status: 'downloading' | 'installing' | 'restarting' | 'error'; percent: number; message?: string }) => void
+  ): Promise<void> {
+    const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+    if (isDesktop) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const { listen } = await import('@tauri-apps/api/event');
+
+        const unlisten = await listen<any>('update-progress', (event) => {
+          if (onProgress && event.payload) {
+            onProgress(event.payload);
+          }
+        });
+
+        // Determine best download URL for Windows desktop: prefer direct exe or setup
+        const downloadUrl = updateInfo.downloadUrl;
+        const expectedSize = updateInfo.platformAsset?.size || 0;
+
+        await invoke('install_and_restart_update', {
+          downloadUrl,
+          expectedSize: expectedSize > 0 ? expectedSize : null,
+        });
+
+        unlisten();
+        return;
+      } catch (err: any) {
+        console.error('Desktop install and restart failed:', err);
+        if (onProgress) {
+          onProgress({
+            status: 'error',
+            percent: 0,
+            message: typeof err === 'string' ? err : 'Erreur lors de l\'installation automatique.',
+          });
+        }
+        throw err;
+      }
+    }
+
+    // Web / iOS PWA Flow (Discord style animated update)
+    if (onProgress) {
+      onProgress({ status: 'downloading', percent: 15, message: 'Téléchargement des modules...' });
+      await new Promise((r) => setTimeout(r, 600));
+
+      onProgress({ status: 'downloading', percent: 65, message: 'Optimisation des caches...' });
+      await new Promise((r) => setTimeout(r, 700));
+
+      onProgress({ status: 'installing', percent: 95, message: 'Installation des fichiers...' });
+      await new Promise((r) => setTimeout(r, 600));
+
+      onProgress({ status: 'restarting', percent: 100, message: 'Redémarrage de l\'application...' });
+      await new Promise((r) => setTimeout(r, 800));
+    }
+
+    // Reload browser / PWA to take effect
+    window.location.reload();
+  },
 };

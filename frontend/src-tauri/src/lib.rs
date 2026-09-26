@@ -72,6 +72,203 @@ fn open_url(url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn install_and_restart_update(
+    window: tauri::Window,
+    download_url: String,
+    expected_size: Option<u64>,
+) -> Result<(), String> {
+    use std::io::Write;
+    use tauri::Emitter;
+
+    let temp_dir = std::env::temp_dir();
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let _exe_name = current_exe
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "swiftbalt.exe".to_string());
+
+    let is_nsis_installer = download_url.to_lowercase().contains("setup")
+        || current_exe
+            .to_string_lossy()
+            .to_lowercase()
+            .contains("appdata\\local\\programs");
+
+    let target_temp_file = if is_nsis_installer {
+        temp_dir.join("SwiftBalt_Update_Setup.exe")
+    } else {
+        temp_dir.join("SwiftBalt_Update_New.exe")
+    };
+
+    // Remove any leftover temp file
+    let _ = std::fs::remove_file(&target_temp_file);
+
+    // Initial progress event
+    let _ = window.emit(
+        "update-progress",
+        serde_json::json!({
+            "status": "downloading",
+            "percent": 5,
+            "downloaded": 0,
+            "total": expected_size.unwrap_or(0)
+        }),
+    );
+
+    // Spawn download via curl
+    #[cfg(target_os = "windows")]
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    let mut curl_cmd = Command::new("curl.exe");
+    curl_cmd
+        .arg("-L")
+        .arg("-s")
+        .arg("-o")
+        .arg(&target_temp_file)
+        .arg(&download_url);
+
+    #[cfg(target_os = "windows")]
+    curl_cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let mut child = curl_cmd
+        .spawn()
+        .map_err(|e| format!("Impossible de démarrer le téléchargement: {}", e))?;
+
+    let target_temp_clone = target_temp_file.clone();
+    let window_clone = window.clone();
+    let total_bytes = expected_size.unwrap_or(0);
+
+    // Progress monitoring loop
+    let progress_handle = std::thread::spawn(move || {
+        while let Ok(None) = child.try_wait() {
+            if let Ok(meta) = std::fs::metadata(&target_temp_clone) {
+                let downloaded = meta.len();
+                let pct = if total_bytes > 0 {
+                    ((downloaded as f64 / total_bytes as f64) * 92.0).clamp(5.0, 95.0) as u32
+                } else {
+                    50
+                };
+                let _ = window_clone.emit(
+                    "update-progress",
+                    serde_json::json!({
+                        "status": "downloading",
+                        "percent": pct,
+                        "downloaded": downloaded,
+                        "total": total_bytes
+                    }),
+                );
+            }
+            std::thread::sleep(std::time::Duration::from_millis(150));
+        }
+        child.wait()
+    });
+
+    let exit_status = progress_handle
+        .join()
+        .map_err(|_| "Erreur du thread de progression".to_string())?
+        .map_err(|e| format!("Échec du processus de téléchargement: {}", e))?;
+
+    if !exit_status.success() || !target_temp_file.exists() {
+        let _ = window.emit(
+            "update-progress",
+            serde_json::json!({
+                "status": "error",
+                "percent": 0,
+                "message": "Erreur lors du téléchargement de la mise à jour."
+            }),
+        );
+        return Err("Échec du téléchargement".to_string());
+    }
+
+    // Step 2: Installing state
+    let _ = window.emit(
+        "update-progress",
+        serde_json::json!({
+            "status": "installing",
+            "percent": 98,
+            "message": "Installation des fichiers en cours..."
+        }),
+    );
+
+    std::thread::sleep(std::time::Duration::from_millis(600));
+
+    // Step 3: Restarting state
+    let _ = window.emit(
+        "update-progress",
+        serde_json::json!({
+            "status": "restarting",
+            "percent": 100,
+            "message": "Redémarrage de SwiftBalt..."
+        }),
+    );
+
+    std::thread::sleep(std::time::Duration::from_millis(400));
+
+    // Platform-specific restart and apply
+    #[cfg(target_os = "windows")]
+    {
+        let script_path = temp_dir.join("swiftbalt_restart_updater.bat");
+        let mut script = std::fs::File::create(&script_path).map_err(|e| e.to_string())?;
+
+        if is_nsis_installer {
+            writeln!(script, "@echo off").map_err(|e| e.to_string())?;
+            writeln!(script, "timeout /t 1 /nobreak > nul").map_err(|e| e.to_string())?;
+            writeln!(
+                script,
+                "start \"\" \"{}\" /S",
+                target_temp_file.to_string_lossy()
+            )
+            .map_err(|e| e.to_string())?;
+            writeln!(script, "exit").map_err(|e| e.to_string())?;
+        } else {
+            writeln!(script, "@echo off").map_err(|e| e.to_string())?;
+            writeln!(script, "timeout /t 1 /nobreak > nul").map_err(|e| e.to_string())?;
+            writeln!(script, ":retry").map_err(|e| e.to_string())?;
+            writeln!(
+                script,
+                "copy /y \"{}\" \"{}\" > nul 2>&1",
+                target_temp_file.to_string_lossy(),
+                current_exe.to_string_lossy()
+            )
+            .map_err(|e| e.to_string())?;
+            writeln!(
+                script,
+                "if errorlevel 1 (timeout /t 1 /nobreak > nul & goto retry)"
+            )
+            .map_err(|e| e.to_string())?;
+            writeln!(script, "start \"\" \"{}\"", current_exe.to_string_lossy())
+                .map_err(|e| e.to_string())?;
+            writeln!(script, "exit").map_err(|e| e.to_string())?;
+        }
+
+        let mut bat_cmd = Command::new("cmd.exe");
+        bat_cmd.args(&["/C", script_path.to_str().unwrap()]);
+        bat_cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = bat_cmd.spawn();
+
+        // Kill backend child if active
+        let mut guard = BACKEND_CHILD.lock().unwrap();
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+        }
+
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            std::process::exit(0);
+        });
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = Command::new("chmod")
+            .args(&["+x", target_temp_file.to_str().unwrap()])
+            .status();
+        let _ = Command::new(&target_temp_file).spawn();
+        std::process::exit(0);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 fn window_minimize(window: tauri::Window) {
     let _ = window.minimize();
 }
@@ -336,6 +533,7 @@ pub fn run() {
             pick_folder,
             open_folder,
             open_url,
+            install_and_restart_update,
             window_minimize,
             window_toggle_maximize,
             window_close,

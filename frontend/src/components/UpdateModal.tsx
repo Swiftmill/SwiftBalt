@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UpdateInfo, updaterService, detectPlatform } from '../services/updater';
-import { Sparkles, Download, ExternalLink, X, CheckCircle2, Wrench, ShieldCheck } from 'lucide-react';
+import { Sparkles, Download, ExternalLink, X, CheckCircle2, Wrench, ShieldCheck, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface UpdateModalProps {
   updateInfo: UpdateInfo;
@@ -14,6 +14,10 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
   onDismissVersion,
 }) => {
   const platform = detectPlatform();
+  const [installStatus, setInstallStatus] = useState<'idle' | 'downloading' | 'installing' | 'restarting' | 'error'>('idle');
+  const [percent, setPercent] = useState<number>(0);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const getPlatformLabel = () => {
     switch (platform) {
@@ -25,7 +29,33 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     }
   };
 
-  const handleDownload = () => {
+  const handleAutoUpdate = async () => {
+    setInstallStatus('downloading');
+    setPercent(8);
+    setStatusMessage('Démarrage du téléchargement...');
+    setErrorMessage('');
+
+    try {
+      await updaterService.installAndRestartUpdate(updateInfo, (data) => {
+        setInstallStatus(data.status);
+        setPercent(data.percent);
+        if (data.message) {
+          setStatusMessage(data.message);
+        } else if (data.status === 'downloading') {
+          setStatusMessage(`Téléchargement de la mise à jour (${data.percent}%)...`);
+        } else if (data.status === 'installing') {
+          setStatusMessage('Installation silencieuse en cours...');
+        } else if (data.status === 'restarting') {
+          setStatusMessage('Redémarrage de SwiftBalt...');
+        }
+      });
+    } catch (err: any) {
+      setInstallStatus('error');
+      setErrorMessage(typeof err === 'string' ? err : err?.message || 'Erreur lors de la mise à jour.');
+    }
+  };
+
+  const handleManualDownload = () => {
     updaterService.openExternalUrl(updateInfo.downloadUrl);
     onClose();
   };
@@ -42,17 +72,21 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
     onClose();
   };
 
+  const isWorking = installStatus === 'downloading' || installStatus === 'installing' || installStatus === 'restarting';
+
   return (
-    <div className="update-modal-backdrop" onClick={onClose}>
+    <div className="update-modal-backdrop" onClick={isWorking ? undefined : onClose}>
       <div className="update-modal-card" onClick={(e) => e.stopPropagation()}>
-        {/* Close Button */}
-        <button
-          className="update-modal-close"
-          onClick={onClose}
-          aria-label="Fermer"
-        >
-          <X size={18} />
-        </button>
+        {/* Close Button (disabled while updating) */}
+        {!isWorking && (
+          <button
+            className="update-modal-close"
+            onClick={onClose}
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
+        )}
 
         {/* Header with Glowing Icon */}
         <div className="update-modal-header">
@@ -119,37 +153,95 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (Discord-style In-App Auto-Update) */}
         <div className="update-modal-footer">
-          <div className="update-footer-left">
-            <button
-              type="button"
-              className="update-btn-ghost"
-              onClick={handleIgnore}
-            >
-              Ignorer cette version
-            </button>
-          </div>
+          {installStatus === 'idle' ? (
+            <>
+              <div className="update-footer-left">
+                <button
+                  type="button"
+                  className="update-btn-ghost"
+                  onClick={handleIgnore}
+                >
+                  Ignorer cette version
+                </button>
+              </div>
 
-          <div className="update-footer-right">
-            <button
-              type="button"
-              className="update-btn-secondary"
-              onClick={handleViewGithub}
-            >
-              <ExternalLink size={14} />
-              <span>Notes GitHub</span>
-            </button>
+              <div className="update-footer-right">
+                <button
+                  type="button"
+                  className="update-btn-secondary"
+                  onClick={handleViewGithub}
+                >
+                  <ExternalLink size={14} />
+                  <span>Notes GitHub</span>
+                </button>
 
-            <button
-              type="button"
-              className="update-btn-primary"
-              onClick={handleDownload}
-            >
-              <Download size={15} />
-              <span>Mettre à jour maintenant</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  className="update-btn-primary"
+                  onClick={handleAutoUpdate}
+                >
+                  <RefreshCw size={15} />
+                  <span>Mettre à jour maintenant</span>
+                </button>
+              </div>
+            </>
+          ) : installStatus === 'error' ? (
+            <div className="discord-update-error" style={{ width: '100%' }}>
+              <div className="discord-update-error-row">
+                <AlertCircle size={16} />
+                <span>{errorMessage || 'Une erreur est survenue lors de la mise à jour.'}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  className="update-btn-secondary"
+                  onClick={handleManualDownload}
+                >
+                  <Download size={14} />
+                  <span>Télécharger manuellement</span>
+                </button>
+                <button
+                  type="button"
+                  className="update-btn-primary"
+                  onClick={handleAutoUpdate}
+                >
+                  <RefreshCw size={14} />
+                  <span>Réessayer</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="discord-update-box">
+              <div className="discord-update-top">
+                <div className="discord-update-title-wrap">
+                  <Loader2 size={16} className="discord-spinner" />
+                  <span>{statusMessage || 'Mise à jour en cours...'}</span>
+                </div>
+                <span className="discord-update-pct">{percent}%</span>
+              </div>
+
+              <div className="discord-progress-track">
+                <div
+                  className="discord-progress-fill"
+                  style={{ width: `${Math.max(percent, 6)}%` }}
+                />
+              </div>
+
+              <div className="discord-steps-row">
+                <span className={`discord-step ${installStatus === 'downloading' ? 'active' : percent > 90 ? 'done' : ''}`}>
+                  {percent > 90 ? '✓' : '📥'} Téléchargement
+                </span>
+                <span className={`discord-step ${installStatus === 'installing' ? 'active' : installStatus === 'restarting' ? 'done' : ''}`}>
+                  {installStatus === 'restarting' ? '✓' : '⚙️'} Installation
+                </span>
+                <span className={`discord-step ${installStatus === 'restarting' ? 'active' : ''}`}>
+                  🚀 Redémarrage
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
