@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Save, Copy, FolderOpen, Smartphone, Laptop, Folder, Download, Monitor, Film, Zap } from 'lucide-react';
+import { Check, Save, Copy, FolderOpen, Smartphone, Laptop, Folder, Download, Monitor, Film, Zap, RefreshCw, Sparkles, ExternalLink } from 'lucide-react';
 import { SettingsData } from '../types';
 import { api } from '../services/api';
+import { updaterService, CURRENT_VERSION, UpdateInfo } from '../services/updater';
 
 const Select: React.FC<{ value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }> = ({
   value, onChange, options,
@@ -25,7 +26,11 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void }> = (
   </label>
 );
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  onOpenUpdateModal?: (info: UpdateInfo) => void;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onOpenUpdateModal }) => {
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -33,6 +38,34 @@ export const SettingsPage: React.FC = () => {
   const [folderOpenFeedback, setFolderOpenFeedback] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState<string | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
+  const [autoCheckUpdates, setAutoCheckUpdates] = useState(updaterService.isAutoCheckEnabled());
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateFeedback(null);
+    try {
+      const info = await updaterService.checkForUpdates(true);
+      if (info.hasUpdate) {
+        setAvailableUpdate(info);
+        setUpdateFeedback(`Nouvelle version v${info.latestVersion} disponible !`);
+        if (onOpenUpdateModal) {
+          onOpenUpdateModal(info);
+        }
+      } else {
+        setAvailableUpdate(null);
+        setUpdateFeedback(`Votre application est à jour (v${CURRENT_VERSION})`);
+        setTimeout(() => setUpdateFeedback(null), 4000);
+      }
+    } catch {
+      setUpdateFeedback('Impossible de contacter le serveur de mise à jour');
+      setTimeout(() => setUpdateFeedback(null), 4000);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     const isMobile = typeof navigator !== 'undefined' && (
@@ -375,6 +408,85 @@ export const SettingsPage: React.FC = () => {
                 <p className="settings-row-desc">Supprimer les fichiers .temp après fusion</p>
               </div>
               <Toggle checked={settings.delete_temp_files} onChange={(v) => update({ delete_temp_files: v })} />
+            </div>
+          </div>
+        </div>
+
+        {/* Software Updates section */}
+        <div className="settings-section">
+          <p className="settings-section-title">Mises à jour du logiciel</p>
+          <div className="card-sm" style={{ padding: '0 16px' }}>
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <p className="settings-row-label">Version installée</p>
+                <p className="settings-row-desc">Canal officiel GitHub & Cloud</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="version-pill current">v{CURRENT_VERSION}</span>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={handleCheckUpdates}
+                  disabled={isCheckingUpdate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '6px 12px' }}
+                >
+                  <RefreshCw size={13} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                  <span>{isCheckingUpdate ? 'Vérification...' : 'Rechercher une mise à jour'}</span>
+                </button>
+              </div>
+            </div>
+
+            {updateFeedback && (
+              <div style={{ padding: '8px 0', fontSize: 12, color: availableUpdate ? '#fbbf24' : '#4ade80', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {availableUpdate ? <Sparkles size={14} /> : <Check size={14} />}
+                <span>{updateFeedback}</span>
+              </div>
+            )}
+
+            {availableUpdate && (
+              <div style={{
+                margin: '10px 0 14px',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                background: 'rgba(88, 101, 242, 0.12)',
+                border: '1px solid rgba(88, 101, 242, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: '#f1f1f3' }}>
+                    SwiftBalt v{availableUpdate.latestVersion} est disponible !
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {availableUpdate.features.length} nouveautés · {availableUpdate.fixes.length} correctifs
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="update-btn-primary"
+                  onClick={() => onOpenUpdateModal && onOpenUpdateModal(availableUpdate)}
+                  style={{ fontSize: 12, padding: '6px 14px' }}
+                >
+                  <Sparkles size={13} />
+                  <span>Voir & Mettre à jour</span>
+                </button>
+              </div>
+            )}
+
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <p className="settings-row-label">Recherche automatique</p>
+                <p className="settings-row-desc">Vérifier les nouvelles versions au démarrage</p>
+              </div>
+              <Toggle
+                checked={autoCheckUpdates}
+                onChange={(v) => {
+                  setAutoCheckUpdates(v);
+                  updaterService.setAutoCheckEnabled(v);
+                }}
+              />
             </div>
           </div>
         </div>

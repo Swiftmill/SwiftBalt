@@ -46,6 +46,32 @@ fn open_folder(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("rundll32")
+            .args(&["url.dll,FileProtocolHandler", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn window_minimize(window: tauri::Window) {
     let _ = window.minimize();
 }
@@ -309,6 +335,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             pick_folder,
             open_folder,
+            open_url,
             window_minimize,
             window_toggle_maximize,
             window_close,

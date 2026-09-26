@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 
+import { UpdateInfo } from '../services/updater';
+
 interface TopBarProps {
   onMenuOpen: () => void;
   isWsConnected: boolean;
   onLogoClick: () => void;
+  availableUpdate?: UpdateInfo | null;
+  onOpenUpdateModal?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLogoClick }) => {
+export const TopBar: React.FC<TopBarProps> = ({
+  onMenuOpen,
+  isWsConnected,
+  onLogoClick,
+  availableUpdate,
+  onOpenUpdateModal,
+}) => {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -94,6 +104,20 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuOpen, isWsConnected, onLog
           </div>
           <span className="topbar-name">swiftbalt</span>
           <span className="topbar-badge">v1</span>
+          {availableUpdate?.hasUpdate && (
+            <button
+              type="button"
+              className="topbar-update-badge"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenUpdateModal?.();
+              }}
+              title={`Mise à jour v${availableUpdate.latestVersion} disponible !`}
+            >
+              <span>v{availableUpdate.latestVersion}</span>
+              <span>⚡</span>
+            </button>
+          )}
         </div>
       </div>
 

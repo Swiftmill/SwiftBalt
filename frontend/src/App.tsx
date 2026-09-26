@@ -17,6 +17,8 @@ import { wsService } from './services/websocket';
 import { ArrowDownToLine, Home, Download, Tv, Settings as SettingsIcon } from 'lucide-react';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { DynamicIsland } from './components/DynamicIsland';
+import { UpdateModal } from './components/UpdateModal';
+import { updaterService, UpdateInfo } from './services/updater';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('home');
@@ -24,6 +26,8 @@ export const App: React.FC = () => {
   const [isWsConnected, setIsWsConnected] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const notifiedCompletedRef = useRef<Set<string>>(new Set());
 
   const addToast = (toast: Omit<ToastMessage, 'id'>) => {
@@ -123,6 +127,25 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    // Check for updates in background shortly after load
+    const timer = setTimeout(async () => {
+      if (updaterService.isAutoCheckEnabled()) {
+        try {
+          const info = await updaterService.checkForUpdates(false);
+          if (info.hasUpdate) {
+            setUpdateInfo(info);
+            setShowUpdateModal(true);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }, 2800);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const activeDownloads = downloads.filter((d) =>
     ['queued', 'processing', 'downloading', 'merging', 'converting'].includes(d.status)
   );
@@ -145,6 +168,8 @@ export const App: React.FC = () => {
         onMenuOpen={() => setSidebarOpen(true)}
         isWsConnected={isWsConnected}
         onLogoClick={() => navigate('home')}
+        availableUpdate={updateInfo}
+        onOpenUpdateModal={() => setShowUpdateModal(true)}
       />
 
       {/* Sidebar overlay nav */}
@@ -179,7 +204,14 @@ export const App: React.FC = () => {
         )}
         {currentTab === 'providers' && <ProvidersPage />}
         {currentTab === 'dashboard' && <DashboardPage />}
-        {currentTab === 'settings' && <SettingsPage />}
+        {currentTab === 'settings' && (
+          <SettingsPage
+            onOpenUpdateModal={(info) => {
+              setUpdateInfo(info);
+              setShowUpdateModal(true);
+            }}
+          />
+        )}
       </main>
 
       {/* Floating active downloads badge */}
@@ -232,6 +264,17 @@ export const App: React.FC = () => {
 
       {/* Real-time Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
+      {/* Software Update Modal */}
+      {showUpdateModal && updateInfo && (
+        <UpdateModal
+          updateInfo={updateInfo}
+          onClose={() => setShowUpdateModal(false)}
+          onDismissVersion={() => {
+            setUpdateInfo(null);
+          }}
+        />
+      )}
     </div>
   );
 };
